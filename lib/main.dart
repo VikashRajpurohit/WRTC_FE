@@ -1,7 +1,12 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:go_router/go_router.dart';
+import 'package:netshare/data/pref_data.dart';
+import 'package:netshare/provider/user_info.dart';
+import 'package:netshare/service/signalling.service.dart';
 import 'package:netshare/ui/common_view/confirm_dialog.dart';
 import 'package:provider/provider.dart';
 
@@ -96,13 +101,16 @@ class _MyAppState extends State<MyApp> {
   );
   bool _isKeyboardListenerEnabled = true;
 
+
   @override
   Widget build(BuildContext context) {
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => FileProvider()),
         ChangeNotifierProvider(create: (context) => DatabaseProvider()),
         ChangeNotifierProvider(create: (context) => ConnectionProvider()),
+        ChangeNotifierProvider(create: (context) => UserProvider()),
       ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,

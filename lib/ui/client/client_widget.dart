@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import 'package:netshare/entity/download/download_manner.dart';
 import 'package:netshare/entity/download/download_state.dart';
 import 'package:netshare/entity/shared_file_entity.dart';
 import 'package:netshare/provider/connection_provider.dart';
+import 'package:netshare/service/signalling.service.dart';
 import 'package:netshare/ui/client/connect_widget.dart';
 import 'package:netshare/ui/client/navigation_widget.dart';
 import 'package:netshare/ui/common_view/two_modes_switcher.dart';
@@ -174,8 +176,19 @@ class _ClientWidgetState extends State<ClientWidget> {
     super.dispose();
   }
 
+ final String websocketUrl = "http://192.168.29.102:5000/";
+
+  // generate callerID of local user
+  final String selfCallerID = Random().nextInt(999999).toString().padLeft(6, '0');
+
+
   @override
   Widget build(BuildContext context) {
+      SignallingService.instance.init(
+      websocketUrl: websocketUrl,
+      selfCallerID: selfCallerID,
+      context: context
+    );
     return Consumer<ConnectionProvider>(builder: (BuildContext ct, value, Widget? child) {
       final connectionStatus = value.connectionStatus;
       final connectedIPAddress = value.connectedIPAddress;

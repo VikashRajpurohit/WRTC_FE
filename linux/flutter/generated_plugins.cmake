@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   desktop_drop
+  flutter_webrtc
   open_dir_linux
   url_launcher_linux
   window_size

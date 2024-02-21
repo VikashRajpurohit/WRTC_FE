@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   desktop_drop
+  flutter_webrtc
   network_info_plus
   open_dir_windows
   permission_handler_windows

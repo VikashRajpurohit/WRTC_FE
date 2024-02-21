@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:netshare/data/pref_data.dart';
 import 'package:netshare/di/di.dart';
 import 'package:netshare/entity/function_mode.dart';
 import 'package:netshare/entity/shared_file_entity.dart';
+import 'package:netshare/service/signalling.service.dart';
 import 'package:netshare/ui/common_view/address_field_widget.dart';
 import 'package:netshare/ui/common_view/two_modes_switcher.dart';
 import 'package:netshare/ui/server/qr_popup.dart';
@@ -35,6 +37,9 @@ class ServerWidget extends StatefulWidget {
 }
 
 class _ServerWidgetState extends State<ServerWidget> {
+  
+  dynamic incomingSDPOffer;
+
   final _ipTextController = TextEditingController();
   final _portTextController = TextEditingController(text: '8080');
 
@@ -51,12 +56,19 @@ class _ServerWidgetState extends State<ServerWidget> {
   final ValueNotifier<String> _watchTimerValue = ValueNotifier('');
 
   late TwoModeSwitcher _twoModeSwitcher;
-  final GlobalKey<TwoModeSwitcherState> _twoModeSwitcherKey = GlobalKey<TwoModeSwitcherState>();
+  final GlobalKey<TwoModeSwitcherState> _twoModeSwitcherKey =
+      GlobalKey<TwoModeSwitcherState>();
 
   @override
   void initState() {
     super.initState();
 
+    SignallingService.instance.socket!.on("newCall", (data) {
+      if (mounted) {
+        // set SDP Offer of incoming call
+        setState(() => incomingSDPOffer = data);
+      }
+    });
     // pre-loading values
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       final lastAddress = await getIt.get<PrefData>().getLastHostedAddress();
@@ -93,7 +105,7 @@ class _ServerWidgetState extends State<ServerWidget> {
       _watchTimerValue.value = Duration(seconds: secs).formatTime();
     });
     _isHostingNotifier.addListener(() async {
-      if(_isHostingNotifier.value) {
+      if (_isHostingNotifier.value) {
         _stopWatchTimer.onStartTimer();
       } else {
         _stopWatchTimer.onResetTimer();
@@ -107,8 +119,8 @@ class _ServerWidgetState extends State<ServerWidget> {
       onValueChanged: (mode) => context.switchingModes(
         newMode: mode == true ? FunctionMode.server : FunctionMode.client,
         confirmCallback: (isUserAgreed) {
-          if(isUserAgreed) {
-            if(_isHostingNotifier.value) {
+          if (isUserAgreed) {
+            if (_isHostingNotifier.value) {
               _stopHosting(isForce: true);
             }
             // force using goNamed instead of pushName, due to:
@@ -129,90 +141,156 @@ class _ServerWidgetState extends State<ServerWidget> {
     super.dispose();
   }
 
+  final String websocketUrl = "http://192.168.29.102:5000/";
+
+  // generate callerID of local user
+  final String selfCallerID =
+      Random().nextInt(999999).toString().padLeft(6, '0');
+
+  // join Call
+  _joinCall({
+    required String callerId,
+    required String calleeId,
+    dynamic offer,
+  }) {
+    // Navigator.push(
+    //   context,
+    //   MaterialPageRoute(
+    //     builder: (_) => CallScreen(
+    //       callerId: callerId,
+    //       calleeId: calleeId,
+    //       offer: offer,
+    //     ),
+    //   ),
+    // );
+  }
+
   @override
   Widget build(BuildContext context) {
+    SignallingService.instance.init(
+        websocketUrl: websocketUrl,
+        selfCallerID: selfCallerID,
+        context: context);
     return Scaffold(
       appBar: AppBar(
         centerTitle: false,
         title: _twoModeSwitcher,
-        actions: [
-          _buildAppBarActions()
-        ],
+        actions: [_buildAppBarActions()],
       ),
-      body: Container(
-        alignment: Alignment.center,
-        margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
-        child: ValueListenableBuilder(
-            valueListenable: _isHostingNotifier,
-            builder: (BuildContext context, bool isServerStarted, Widget? child) {
-              return Column(
-                children: [
-                  const SizedBox(height: 8.0),
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width * 3 / 4,
-                    child: Column(
-                      children: [
-                        _buildIPPortRow(isServerStarted),
-                        const SizedBox(height: 8.0),
-                        _buildDirPickerRow(isServerStarted),
-                      ],
-                    ),
+      body: Stack(
+        children: [
+          Container(
+            alignment: Alignment.center,
+            margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+            child: ValueListenableBuilder(
+                valueListenable: _isHostingNotifier,
+                builder:
+                    (BuildContext context, bool isServerStarted, Widget? child) {
+                  return Column(
+                    children: [
+                      const SizedBox(height: 8.0),
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width * 3 / 4,
+                        child: Column(
+                          children: [
+                            _buildIPPortRow(isServerStarted),
+                            const SizedBox(height: 8.0),
+                            _buildDirPickerRow(isServerStarted),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 28.0),
+                      _buildStartHostingButton(isServerStarted),
+                      const SizedBox(height: 28.0),
+                      Expanded(
+                        child: _buildLogOutput(isServerStarted),
+                      ),
+                    ],
+                  );
+                }),
+          ),
+          if (incomingSDPOffer != null)
+              Positioned(
+                child: ListTile(
+                  title: Text(
+                    "Incoming Call from ${incomingSDPOffer["callerId"]}",
                   ),
-                  const SizedBox(height: 28.0),
-                  _buildStartHostingButton(isServerStarted),
-                  const SizedBox(height: 28.0),
-                  Expanded(
-                    child: _buildLogOutput(isServerStarted),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.call_end),
+                        color: Colors.redAccent,
+                        onPressed: () {
+                          setState(() => incomingSDPOffer = null);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.call),
+                        color: Colors.greenAccent,
+                        onPressed: () {
+                          print("Trying to join a call.");
+                        },
+                      )
+                    ],
                   ),
-                ],
-              );
-            }),
+                ),
+              ),
+       
+        ],
       ),
     );
   }
 
   _buildAppBarActions() => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-    child: ValueListenableBuilder(
-      valueListenable: _isHostingNotifier,
-      builder: (BuildContext context, bool value, Widget? child) {
-        return value ? Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ValueListenableBuilder(
-              valueListenable: _watchTimerValue,
-              builder: (BuildContext context, String value, Widget? child) {
-                return Text(
-                  value.isEmpty ? '00:00:00' : value,
-                  style: CommonTextStyle.textStyleNormal,
-                );
-              },
-            ),
-            const SizedBox(width: 8.0),
-            const Icon(Icons.circle, size: 12.0, color: Colors.red),
-            const SizedBox(width: 16.0),
-            QRMenuPopup(ipAddress: _ipTextController.text, port: _portTextController.text),
-          ],
-        ) : const SizedBox.shrink();
-      },
-    ),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: ValueListenableBuilder(
+          valueListenable: _isHostingNotifier,
+          builder: (BuildContext context, bool value, Widget? child) {
+            return value
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ValueListenableBuilder(
+                        valueListenable: _watchTimerValue,
+                        builder: (BuildContext context, String value,
+                            Widget? child) {
+                          return Text(
+                            value.isEmpty ? '00:00:00' : value,
+                            style: CommonTextStyle.textStyleNormal,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 8.0),
+                      const Icon(Icons.circle, size: 12.0, color: Colors.red),
+                      const SizedBox(width: 16.0),
+                      QRMenuPopup(
+                          ipAddress: _ipTextController.text,
+                          port: _portTextController.text),
+                    ],
+                  )
+                : const SizedBox.shrink();
+          },
+        ),
+      );
 
   _buildIPPortRow(isServerStarted) => Row(
-    children: [
-      Expanded(
-        child: AddressFieldWidget(
-          ipTextController: _ipTextController,
-          portTextController: _portTextController,
-          isEnableIP: !isServerStarted,
-          isEnablePort: !isServerStarted,
-          backgroundColor: textFieldBackgroundColor,
-        ),
-      ),
-      UtilityFunctions.isDesktop ? const SizedBox(width: 80.0) : const SizedBox(width: 8.0),
-    ],
-  );
+        children: [
+          Expanded(
+            child: AddressFieldWidget(
+              ipTextController: _ipTextController,
+              portTextController: _portTextController,
+              isEnableIP: !isServerStarted,
+              isEnablePort: !isServerStarted,
+              backgroundColor: textFieldBackgroundColor,
+            ),
+          ),
+          UtilityFunctions.isDesktop
+              ? const SizedBox(width: 80.0)
+              : const SizedBox(width: 8.0),
+        ],
+      );
 
   _buildDirPickerRow(isServerStarted) => IntrinsicHeight(
         child: Row(
@@ -226,11 +304,13 @@ class _ServerWidgetState extends State<ServerWidget> {
                   hintText: 'Pick the sharing path here',
                   hintStyle: const TextStyle(color: Colors.black26),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black12.withOpacity(0.2), width: 1.2),
+                    borderSide: BorderSide(
+                        color: Colors.black12.withOpacity(0.2), width: 1.2),
                     borderRadius: const BorderRadius.all(Radius.circular(8.0)),
                   ),
                   border: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black12.withOpacity(0.2), width: 1.2),
+                    borderSide: BorderSide(
+                        color: Colors.black12.withOpacity(0.2), width: 1.2),
                     borderRadius: const BorderRadius.all(Radius.circular(8.0)),
                   ),
                   filled: true,
@@ -250,7 +330,8 @@ class _ServerWidgetState extends State<ServerWidget> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8.0),
                 ),
-                onPressed: () => !isServerStarted ? _onClickSelectDirPath() : null,
+                onPressed: () =>
+                    !isServerStarted ? _onClickSelectDirPath() : null,
                 child: const SizedBox(
                   child: Icon(
                     Icons.drive_folder_upload,
@@ -265,11 +346,15 @@ class _ServerWidgetState extends State<ServerWidget> {
                     width: 72,
                     child: MaterialButton(
                       height: double.infinity,
-                      color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surface
+                          .withOpacity(0.8),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8.0),
                       ),
-                      onPressed: () => _openNativeDirectory(_fileDirectoryTextController.text),
+                      onPressed: () => _openNativeDirectory(
+                          _fileDirectoryTextController.text),
                       child: const SizedBox(
                         child: Icon(
                           Icons.open_in_new,
@@ -291,13 +376,18 @@ class _ServerWidgetState extends State<ServerWidget> {
           ipAddress: _ipTextController.text,
           port: int.parse(_portTextController.text),
         ),
-        icon: Icon(Icons.wifi_tethering,
-            color: isServerStarted ? textIconButtonColorActivated : textIconButtonColor,
+        icon: Icon(
+          Icons.wifi_tethering,
+          color: isServerStarted
+              ? textIconButtonColorActivated
+              : textIconButtonColor,
         ),
         label: Text(
           isServerStarted ? 'Stop hosting' : 'Start hosting',
           style: CommonTextStyle.textStyleNormal.copyWith(
-            color: isServerStarted ? textIconButtonColorActivated : textIconButtonColor,
+            color: isServerStarted
+                ? textIconButtonColorActivated
+                : textIconButtonColor,
           ),
         ),
       );
@@ -328,9 +418,11 @@ class _ServerWidgetState extends State<ServerWidget> {
   _onClickSelectDirPath() async {
     try {
       final isOldDirExisted = await _pickedDir.value.exists();
-      if(isOldDirExisted) {
+      if (isOldDirExisted) {
         String? result = await FilePicker.platform.getDirectoryPath(
-          initialDirectory: (Platform.isMacOS || Platform.isLinux) ? _pickedDir.value.path : null,
+          initialDirectory: (Platform.isMacOS || Platform.isLinux)
+              ? _pickedDir.value.path
+              : null,
         );
         if (result != null && result.isNotEmpty) {
           _fileDirectoryTextController.text = result;
@@ -360,21 +452,24 @@ class _ServerWidgetState extends State<ServerWidget> {
 
   _staticHandler(String pathDir) => shelf_static.createStaticHandler(pathDir);
 
-  Response _undefinedHandler(Request request) => Response.notFound('Request is not found!');
+  Response _undefinedHandler(Request request) =>
+      Response.notFound('Request is not found!');
 
   void _startHosting(ipAddress, port) async {
     final address = '$ipAddress:$port';
     final dir = Directory(_fileDirectoryTextController.text);
-    if(!dir.existsSync()) {
+    if (!dir.existsSync()) {
       context.showSnackbar('Sharing path does not exist. Try again!');
       return;
     }
 
     // Additional check for Android limitation (Android 11 and above,
     // see: https://developer.android.com/training/data-storage/manage-all-files#all-files-access-google-play)
-    final needGrantPermission = await UtilityFunctions.isNeedAccessAllFileStoragePermission;
-    if(needGrantPermission) {
-      final isPermissionGranted = await UtilityFunctions.checkManageExternalStoragePermission(
+    final needGrantPermission =
+        await UtilityFunctions.isNeedAccessAllFileStoragePermission;
+    if (needGrantPermission) {
+      final isPermissionGranted =
+          await UtilityFunctions.checkManageExternalStoragePermission(
         onPermanentlyDenied: () => context.showOpenSettingsDialog(),
       );
       if (!isPermissionGranted) {
@@ -394,17 +489,19 @@ class _ServerWidgetState extends State<ServerWidget> {
 
     // static handler always in the first order in list handlers
     Cascade cascade = Cascade()
-          .add(_staticHandler(dir.path))
-          .add(routerHandler)
-          .add(_undefinedHandler);
+        .add(_staticHandler(dir.path))
+        .add(routerHandler)
+        .add(_undefinedHandler);
     var handler = const Pipeline()
-        .addMiddleware(logRequests(logger: (message, isError) => _exposeLogger(message: message)))
+        .addMiddleware(logRequests(
+            logger: (message, isError) => _exposeLogger(message: message)))
         .addHandler(cascade.handler);
 
     _isHostingNotifier.value = !_isHostingNotifier.value;
 
     try {
-      _serverNotifier.value = await shelf_io.serve(handler, ipAddress, port).catchError((error) {
+      _serverNotifier.value =
+          await shelf_io.serve(handler, ipAddress, port).catchError((error) {
         if (mounted) {
           context.showSnackbar('Failed to host a server! Try again later!');
         }
@@ -412,8 +509,9 @@ class _ServerWidgetState extends State<ServerWidget> {
       });
 
       getIt.get<PrefData>().saveLastHostedAddress(address);
-      _exposeLogger(message: 'Start server at http://${_serverNotifier.value?.address.host}:${_serverNotifier.value?.port}');
-
+      _exposeLogger(
+          message:
+              'Start server at http://${_serverNotifier.value?.address.host}:${_serverNotifier.value?.port}');
     } catch (e) {
       debugPrint(e.toString());
       _stopHosting(isForce: false);
@@ -437,7 +535,8 @@ class _ServerWidgetState extends State<ServerWidget> {
 
     final listJson = files.map((f) {
       final fileName = path.basename(f.path);
-      return SharedFile(name: fileName, url: 'http://$address/$fileName').toJson();
+      return SharedFile(name: fileName, url: 'http://$address/$fileName')
+          .toJson();
     }).toList();
     return Response(
       HttpStatus.ok,
@@ -448,7 +547,8 @@ class _ServerWidgetState extends State<ServerWidget> {
 
   Future<Response> _uploadFileHandler(Request request, String address) async {
     final contentType = MediaType.parse(request.headers['Content-Type'] ?? '');
-    final transformer = MimeMultipartTransformer(contentType.parameters["boundary"] ?? '');
+    final transformer =
+        MimeMultipartTransformer(contentType.parameters["boundary"] ?? '');
     final parts = transformer.bind(request.read());
     try {
       List<String> listFileName = [];
@@ -456,10 +556,12 @@ class _ServerWidgetState extends State<ServerWidget> {
         final content = part.cast<List<int>>();
 
         // parse file name from header
-        List<String> pairs = part.headers['content-disposition']?.split(";") ?? [];
+        List<String> pairs =
+            part.headers['content-disposition']?.split(";") ?? [];
         final fileName = pairs.map((element) {
-          if(element.contains('filename')) {
-            return element.substring(element.indexOf("=") + 2, element.length - 1);
+          if (element.contains('filename')) {
+            return element.substring(
+                element.indexOf("=") + 2, element.length - 1);
           }
           return '';
         }).firstWhere((element) => element.isNotEmpty);
@@ -477,7 +579,8 @@ class _ServerWidgetState extends State<ServerWidget> {
 
       // response added files
       final listJson = listFileName.map((fileName) {
-        return SharedFile(name: fileName, url: 'http://$address/$fileName').toJson();
+        return SharedFile(name: fileName, url: 'http://$address/$fileName')
+            .toJson();
       }).toList();
       return Response(
         HttpStatus.ok,
@@ -520,7 +623,7 @@ class _ServerWidgetState extends State<ServerWidget> {
     try {
       final openDirPlugin = OpenDir();
       final rs = await openDirPlugin.openNativeDir(path: path);
-      if(rs != null && rs) {
+      if (rs != null && rs) {
         debugPrint('Opened directory: $path');
       } else {
         if (mounted) {

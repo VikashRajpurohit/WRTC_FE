@@ -36,4 +36,15 @@ class PrefData {
     return prefs.getString('picked_path');
   }
 
+ // user enrollment
+  Future<bool> saveEnrollmentNo(String pickedPath) async {
+    final SharedPreferences prefs = await _prefs;
+    return prefs.setString('enro_no', pickedPath);
+  }
+
+  Future<String?> getEnrollmentNo() async {
+    final SharedPreferences prefs = await _prefs;
+    return prefs.getString('enro_no');
+  }
+
 }

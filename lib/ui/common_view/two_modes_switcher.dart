@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:netshare/provider/user_info.dart';
+import 'package:provider/provider.dart';
 
 class TwoModeSwitcher extends StatefulWidget {
   final bool switchInitValue;
@@ -20,7 +22,6 @@ class TwoModeSwitcher extends StatefulWidget {
 
 class TwoModeSwitcherState extends State<TwoModeSwitcher> {
   bool switchValue = false;
-
   @override
   void initState() {
     super.initState();
@@ -29,6 +30,7 @@ class TwoModeSwitcherState extends State<TwoModeSwitcher> {
 
   @override
   Widget build(BuildContext context) {
+  final userProvider = Provider.of<UserProvider>(context, listen: false);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -50,6 +52,7 @@ class TwoModeSwitcherState extends State<TwoModeSwitcher> {
           },
         ),
         widget.rightValue ?? const SizedBox.shrink(),
+        Text("User : "+ userProvider.user,style: TextStyle(fontSize: 18),),
       ],
     );
   }
