@@ -176,7 +176,7 @@ class _ClientWidgetState extends State<ClientWidget> {
     super.dispose();
   }
 
- final String websocketUrl = "http://192.168.29.102:5000/";
+ final String websocketUrl = "http://10.0.50.34:5000/";
 
   // generate callerID of local user
   final String selfCallerID = Random().nextInt(999999).toString().padLeft(6, '0');

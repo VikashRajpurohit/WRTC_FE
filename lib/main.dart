@@ -114,7 +114,7 @@ class _MyAppState extends State<MyApp> {
       ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
-        title: 'NetShare',
+        title: 'My Space',
         theme: ThemeData(
           useMaterial3: true,
           appBarTheme: const AppBarTheme(color: backgroundColor),

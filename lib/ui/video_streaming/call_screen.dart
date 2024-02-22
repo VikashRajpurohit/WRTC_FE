@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:netshare/service/signalling.service.dart';
-
+import 'package:flutter/foundation.dart';
 class CallScreen extends StatefulWidget {
   final String callerId, calleeId;
   final dynamic offer;
@@ -57,6 +57,7 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   _setupPeerConnection() async {
+    
     // create peer connection
     _rtcPeerConnection = await createPeerConnection({
       'iceServers': [
@@ -219,7 +220,8 @@ class _CallScreenState extends State<CallScreen> {
               child: Stack(children: [
                 RTCVideoView(
                   _remoteRTCVideoRenderer,
-                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                  filterQuality: FilterQuality.medium,
+                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
                 ),
                 Positioned(
                   right: 20,
@@ -251,6 +253,8 @@ class _CallScreenState extends State<CallScreen> {
                     iconSize: 30,
                     onPressed: _leaveCall,
                   ),
+
+                  if(defaultTargetPlatform != TargetPlatform.windows || defaultTargetPlatform != TargetPlatform.macOS)
                   IconButton(
                     icon: const Icon(Icons.cameraswitch),
                     onPressed: _switchCamera,

@@ -37,8 +37,6 @@ class ServerWidget extends StatefulWidget {
 }
 
 class _ServerWidgetState extends State<ServerWidget> {
-  
-  dynamic incomingSDPOffer;
 
   final _ipTextController = TextEditingController();
   final _portTextController = TextEditingController(text: '8080');
@@ -62,14 +60,7 @@ class _ServerWidgetState extends State<ServerWidget> {
   @override
   void initState() {
     super.initState();
-
-    SignallingService.instance.socket!.on("newCall", (data) {
-      if (mounted) {
-        // set SDP Offer of incoming call
-        setState(() => incomingSDPOffer = data);
-      }
-    });
-    // pre-loading values
+       // pre-loading values
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       final lastAddress = await getIt.get<PrefData>().getLastHostedAddress();
       if (lastAddress != null && lastAddress.isNotEmpty) {
@@ -141,7 +132,7 @@ class _ServerWidgetState extends State<ServerWidget> {
     super.dispose();
   }
 
-  final String websocketUrl = "http://192.168.29.102:5000/";
+  final String websocketUrl = "http://10.0.50.34:5000/";
 
   // generate callerID of local user
   final String selfCallerID =
@@ -181,11 +172,12 @@ class _ServerWidgetState extends State<ServerWidget> {
         children: [
           Container(
             alignment: Alignment.center,
-            margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+            margin:
+                const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
             child: ValueListenableBuilder(
                 valueListenable: _isHostingNotifier,
-                builder:
-                    (BuildContext context, bool isServerStarted, Widget? child) {
+                builder: (BuildContext context, bool isServerStarted,
+                    Widget? child) {
                   return Column(
                     children: [
                       const SizedBox(height: 8.0),
@@ -209,34 +201,6 @@ class _ServerWidgetState extends State<ServerWidget> {
                   );
                 }),
           ),
-          if (incomingSDPOffer != null)
-              Positioned(
-                child: ListTile(
-                  title: Text(
-                    "Incoming Call from ${incomingSDPOffer["callerId"]}",
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.call_end),
-                        color: Colors.redAccent,
-                        onPressed: () {
-                          setState(() => incomingSDPOffer = null);
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.call),
-                        color: Colors.greenAccent,
-                        onPressed: () {
-                          print("Trying to join a call.");
-                        },
-                      )
-                    ],
-                  ),
-                ),
-              ),
-       
         ],
       ),
     );
