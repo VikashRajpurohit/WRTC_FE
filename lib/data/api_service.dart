@@ -56,4 +56,17 @@ class ApiService {
     }
   }
 
+
+ Future<Either<ApiError, List<SharedFile>>> setUpCommunication() async {
+    refreshDomain();
+    const endpoint = 'http://10.0.50.34:8080/test';
+    var request = http.MultipartRequest("get", Uri.parse(endpoint));
+    try{
+      final response = await request.send();
+      final resStr = await response.stream.bytesToString();
+    }catch(e){}
+    return const Left(ApiError.unknown());
+  }
+  
+
 }

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:netshare/provider/user_info.dart';
 import 'package:netshare/service/signalling.service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
+
 class CallScreen extends StatefulWidget {
   final String callerId, calleeId;
   final dynamic offer;
@@ -40,7 +43,7 @@ class _CallScreenState extends State<CallScreen> {
 
   @override
   void initState() {
-    // initializing renderers 
+    // initializing renderers
     _localRTCVideoRenderer.initialize();
     _remoteRTCVideoRenderer.initialize();
 
@@ -57,7 +60,31 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   _setupPeerConnection() async {
-    
+    // Add this code where you initialize your socket connection
+
+    socket!.on("callEnded", (data) {
+      print("Cut hua call");
+      String caller = data["caller"];
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text("Call Ended"),
+            content: Text("The call with $caller has ended."),
+            actions: <Widget>[
+              TextButton(
+                child: Text("OK"),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+    });
+
     // create peer connection
     _rtcPeerConnection = await createPeerConnection({
       'iceServers': [
@@ -169,8 +196,12 @@ class _CallScreenState extends State<CallScreen> {
     }
   }
 
-  _leaveCall() {
+  _leaveCall(current_user) {
+      socket!.emit("callEnded", {
+            "calleeId": widget.calleeId == current_user ? widget.callerId : widget.calleeId
+          });
     Navigator.pop(context);
+    // Navigator.pop(context);
   }
 
   _toggleMic() {
@@ -208,6 +239,7 @@ class _CallScreenState extends State<CallScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
@@ -251,14 +283,14 @@ class _CallScreenState extends State<CallScreen> {
                   IconButton(
                     icon: const Icon(Icons.call_end),
                     iconSize: 30,
-                    onPressed: _leaveCall,
+                    onPressed: ()=>_leaveCall(userProvider.user),
                   ),
-
-                  if(defaultTargetPlatform != TargetPlatform.windows || defaultTargetPlatform != TargetPlatform.macOS)
-                  IconButton(
-                    icon: const Icon(Icons.cameraswitch),
-                    onPressed: _switchCamera,
-                  ),
+                  if (defaultTargetPlatform != TargetPlatform.windows ||
+                      defaultTargetPlatform != TargetPlatform.macOS)
+                    IconButton(
+                      icon: const Icon(Icons.cameraswitch),
+                      onPressed: _switchCamera,
+                    ),
                   IconButton(
                     icon: Icon(isVideoOn ? Icons.videocam : Icons.videocam_off),
                     onPressed: _toggleCamera,

@@ -19,6 +19,7 @@ import 'package:netshare/entity/shared_file_entity.dart';
 import 'package:netshare/provider/connection_provider.dart';
 import 'package:netshare/service/signalling.service.dart';
 import 'package:netshare/ui/client/connect_widget.dart';
+import 'package:netshare/ui/client/friend_list.dart';
 import 'package:netshare/ui/client/navigation_widget.dart';
 import 'package:netshare/ui/common_view/two_modes_switcher.dart';
 import 'package:netshare/util/utility_functions.dart';
@@ -37,19 +38,21 @@ class ClientWidget extends StatefulWidget {
 }
 
 class _ClientWidgetState extends State<ClientWidget> {
-
+  final socket = SignallingService.instance.socket;
   final ReceivePort _port = ReceivePort();
   final fileRepository = getIt.get<FileRepository>();
 
   late TwoModeSwitcher _twoModeSwitcher;
-  final GlobalKey<TwoModeSwitcherState> _twoModeSwitcherKey = GlobalKey<TwoModeSwitcherState>();
+  final GlobalKey<TwoModeSwitcherState> _twoModeSwitcherKey =
+      GlobalKey<TwoModeSwitcherState>();
 
   @override
   void initState() {
     super.initState();
     // always fetch list files when first open Home screen
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
-      final files = (await fileRepository.getSharedFilesWithState()).getOrElse(() => {});
+      final files =
+          (await fileRepository.getSharedFilesWithState()).getOrElse(() => {});
       if (mounted) {
         context.read<FileProvider>().addAllSharedFiles(sharedFiles: files);
       }
@@ -57,20 +60,27 @@ class _ClientWidgetState extends State<ClientWidget> {
     _initDownloadModule();
     _downloadStreamListener();
     _initSwitcher();
+    // Future.delayed(Duration(milliseconds: 500), () {
+    //   print("came here to the place1");
+    //   socket!.on("onlineUsers", (data) {
+    //   print("came here to the places");
+    //     // context.showSnackbar('Need Camera permission to continue');
+    //   });
+    // });
   }
 
   void _initDownloadModule() {
     if (UtilityFunctions.isMobile) {
       try {
-        IsolateNameServer.registerPortWithName(_port.sendPort, 'downloader_send_port');
+        IsolateNameServer.registerPortWithName(
+            _port.sendPort, 'downloader_send_port');
         _port.listen((dynamic data) async {
-
           // TODO: 2. Flutter engine issue: can only send basic dart type
           // convert int to a custom state
           DownloadState state = (data[1] as int).toDownloadState;
 
           // only update state when finished, less update, less memory usage
-          if(DownloadState.downloading != state) {
+          if (DownloadState.downloading != state) {
             String taskId = data[0];
             final tasks = await FlutterDownloader.loadTasksWithRawQuery(
               query: "SELECT * FROM task WHERE task_id = \"$taskId\"",
@@ -79,20 +89,19 @@ class _ClientWidgetState extends State<ClientWidget> {
             String? url;
             String? savedDir;
             if (null != tasks && tasks.isNotEmpty) {
-              final task = tasks.firstWhere((element) => taskId == element.taskId);
+              final task =
+                  tasks.firstWhere((element) => taskId == element.taskId);
               fileName = task.filename;
               url = task.url;
               savedDir = task.savedDir;
-              getIt.get<DownloadService>().updateDownloadState(
-                  DownloadEntity(
+              getIt.get<DownloadService>().updateDownloadState(DownloadEntity(
                     taskId,
                     fileName ?? '',
                     url,
                     savedDir,
                     DownloadManner.flutterDownloader,
                     state,
-                  )
-              );
+                  ));
             }
           }
         });
@@ -110,10 +119,10 @@ class _ClientWidgetState extends State<ClientWidget> {
       // update state to the list files
       if (mounted) {
         context.read<FileProvider>().updateFile(
-          fileName: downloadEntity.fileName,
-          newFileState: downloadEntity.state.toSharedFileState,
-          savedDir: downloadEntity.savedDir,
-        );
+              fileName: downloadEntity.fileName,
+              newFileState: downloadEntity.state.toSharedFileState,
+              savedDir: downloadEntity.savedDir,
+            );
       }
 
       // add succeed file to Hive database
@@ -137,7 +146,7 @@ class _ClientWidgetState extends State<ClientWidget> {
       onValueChanged: (mode) => context.switchingModes(
         newMode: mode == true ? FunctionMode.server : FunctionMode.client,
         confirmCallback: (isUserAgreed) {
-          if(isUserAgreed) {
+          if (isUserAgreed) {
             _disconnect();
             // force using goNamed instead of pushName, due to:
             // Client and Server widget are sibling widgets, not descendants
@@ -164,7 +173,8 @@ class _ClientWidgetState extends State<ClientWidget> {
     // TODO: 1. Flutter engine issue: can only send basic dart type + restart/hot reload does not work
     //  (https://github.com/flutter/flutter/issues/119589)
     //  can only send basic dart type -> Fix: convert status entity to int
-    IsolateNameServer.lookupPortByName('downloader_send_port')?.send([id, status, progress]);
+    IsolateNameServer.lookupPortByName('downloader_send_port')
+        ?.send([id, status, progress]);
   }
 
   @override
@@ -176,20 +186,20 @@ class _ClientWidgetState extends State<ClientWidget> {
     super.dispose();
   }
 
- final String websocketUrl = "http://10.0.50.34:5000/";
+  final String websocketUrl = "http://10.0.50.34:5000/";
 
   // generate callerID of local user
-  final String selfCallerID = Random().nextInt(999999).toString().padLeft(6, '0');
-
+  final String selfCallerID =
+      Random().nextInt(999999).toString().padLeft(6, '0');
 
   @override
   Widget build(BuildContext context) {
-      SignallingService.instance.init(
-      websocketUrl: websocketUrl,
-      selfCallerID: selfCallerID,
-      context: context
-    );
-    return Consumer<ConnectionProvider>(builder: (BuildContext ct, value, Widget? child) {
+    SignallingService.instance.init(
+        websocketUrl: websocketUrl,
+        selfCallerID: selfCallerID,
+        context: context);
+    return Consumer<ConnectionProvider>(
+        builder: (BuildContext ct, value, Widget? child) {
       final connectionStatus = value.connectionStatus;
       final connectedIPAddress = value.connectedIPAddress;
       final isConnected = connectionStatus == ConnectionStatus.connected;
@@ -208,7 +218,8 @@ class _ClientWidgetState extends State<ClientWidget> {
                 const SizedBox(width: 6.0),
                 Text(
                   connectedIPAddress,
-                  style: CommonTextStyle.textStyleNormal.copyWith(color: textIconButtonColor),
+                  style: CommonTextStyle.textStyleNormal
+                      .copyWith(color: textIconButtonColor),
                 ),
               ],
             ),
@@ -225,11 +236,21 @@ class _ClientWidgetState extends State<ClientWidget> {
                   ),
           ],
         ),
-        body: Column(
+        body: Row(
           children: [
-            NavigationWidgets(connectionStatus: connectionStatus),
-            const Expanded(child: ListSharedFiles()),
-            isConnected ? const SizedBox.shrink() : _buildConnectOptions(),
+            Expanded(
+              flex: 7,
+              child: Column(
+                children: [
+                  NavigationWidgets(connectionStatus: connectionStatus),
+                  const Expanded(child: ListSharedFiles()),
+                  isConnected
+                      ? const SizedBox.shrink()
+                      : _buildConnectOptions(),
+                ],
+              ),
+            ),
+            Expanded(flex: 3, child: OnlineBuddiesPage()),
           ],
         ),
       );
@@ -237,7 +258,7 @@ class _ClientWidgetState extends State<ClientWidget> {
   }
 
   _buildConnectOptions() => Container(
-    margin: const EdgeInsets.only(bottom: 12.0, left: 8.0, right: 8.0),
+        margin: const EdgeInsets.only(bottom: 12.0, left: 8.0, right: 8.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -254,7 +275,8 @@ class _ClientWidgetState extends State<ClientWidget> {
                             fontSize: 14.0,
                           ),
                         ),
-                        icon: const Icon(Icons.qr_code_scanner, color: textIconButtonColor),
+                        icon: const Icon(Icons.qr_code_scanner,
+                            color: textIconButtonColor),
                       ),
                       const SizedBox(width: 16.0),
                     ],
@@ -271,21 +293,22 @@ class _ClientWidgetState extends State<ClientWidget> {
                     fontSize: 14.0,
                   ),
                 ),
-                icon: const Icon(Icons.account_tree, color: textIconButtonColor),
+                icon:
+                    const Icon(Icons.account_tree, color: textIconButtonColor),
               ),
             ),
           ],
         ),
-  );
+      );
 
   _onClickScanButton() async {
     final isPermissionGranted = await UtilityFunctions.checkCameraPermission(
       onPermanentlyDenied: () => context.showOpenSettingsDialog(),
     );
-    if(isPermissionGranted) {
-      if(mounted) {
+    if (isPermissionGranted) {
+      if (mounted) {
         final result = await context.pushNamed<bool>(mScanningPath);
-        if(result == true) {
+        if (result == true) {
           _syncFiles();
         }
       }
@@ -297,7 +320,7 @@ class _ClientWidgetState extends State<ClientWidget> {
   }
 
   _onClickManualButton() {
-    if(UtilityFunctions.isDesktop) {
+    if (UtilityFunctions.isDesktop) {
       showDialog(
         context: context,
         builder: (bsContext) {
@@ -345,9 +368,10 @@ class _ClientWidgetState extends State<ClientWidget> {
   }
 
   _syncFiles() async {
-    final files = (await fileRepository.getSharedFilesWithState()).getOrElse(() => {});
+    final files =
+        (await fileRepository.getSharedFilesWithState()).getOrElse(() => {});
     if (mounted) {
-    context.read<FileProvider>().addAllSharedFiles(sharedFiles: files);
+      context.read<FileProvider>().addAllSharedFiles(sharedFiles: files);
     }
   }
 }

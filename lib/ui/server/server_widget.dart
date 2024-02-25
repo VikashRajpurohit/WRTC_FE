@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:netshare/config/constants.dart';
 import 'package:netshare/config/styles.dart';
+import 'package:netshare/data/api_service.dart';
 import 'package:netshare/data/pref_data.dart';
 import 'package:netshare/di/di.dart';
 import 'package:netshare/entity/function_mode.dart';
@@ -37,7 +38,6 @@ class ServerWidget extends StatefulWidget {
 }
 
 class _ServerWidgetState extends State<ServerWidget> {
-
   final _ipTextController = TextEditingController();
   final _portTextController = TextEditingController(text: '8080');
 
@@ -60,7 +60,7 @@ class _ServerWidgetState extends State<ServerWidget> {
   @override
   void initState() {
     super.initState();
-       // pre-loading values
+    // pre-loading values
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       final lastAddress = await getIt.get<PrefData>().getLastHostedAddress();
       if (lastAddress != null && lastAddress.isNotEmpty) {
@@ -192,7 +192,13 @@ class _ServerWidgetState extends State<ServerWidget> {
                         ),
                       ),
                       const SizedBox(height: 28.0),
-                      _buildStartHostingButton(isServerStarted),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStartHostingButton(isServerStarted),
+                          _buildSendData(isServerStarted),
+                        ],
+                      ),
                       const SizedBox(height: 28.0),
                       Expanded(
                         child: _buildLogOutput(isServerStarted),
@@ -356,6 +362,20 @@ class _ServerWidgetState extends State<ServerWidget> {
         ),
       );
 
+ _buildSendData(isServerStarted) => FloatingActionButton.extended(
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        onPressed: () {getIt<ApiService>().setUpCommunication();},
+        icon: Icon(
+          Icons.wifi_tethering,
+          color: textIconButtonColor,
+        ),
+        label: Text("Send request",
+          style: CommonTextStyle.textStyleNormal.copyWith(
+            color: textIconButtonColor,
+          ),
+        ),
+      );
+
   _buildLogOutput(isServerStarted) => ValueListenableBuilder(
         valueListenable: _logBuffer,
         builder: (BuildContext context, StringBuffer value, Widget? child) {
@@ -449,6 +469,7 @@ class _ServerWidgetState extends State<ServerWidget> {
     // as a fallback for static handler (may use this later)
     final routerHandler = shelf_router.Router()
       ..get('/files', (request) => _getFilesHandler(request, address))
+      ..get('/test', (request) => _test(request, address))
       ..post('/upload', (request) => _uploadFileHandler(request, address));
 
     // static handler always in the first order in list handlers
@@ -506,6 +527,17 @@ class _ServerWidgetState extends State<ServerWidget> {
       HttpStatus.ok,
       headers: {'content-type': 'application/json'},
       body: json.encode(listJson),
+    );
+  }
+
+  Future<Response> _test(Request request, String address) async {
+    // TODO: Blocking by https://github.com/dart-lang/sdk/issues/40303
+    // (Hidden files are included)
+    print("Test succes");
+    return Response(
+      HttpStatus.ok,
+      headers: {'content-type': 'application/json'},
+      body: json.encode({"ABD": "Hello"}),
     );
   }
 
