@@ -15,6 +15,7 @@ import 'package:netshare/data/pref_data.dart';
 import 'package:netshare/di/di.dart';
 import 'package:netshare/entity/function_mode.dart';
 import 'package:netshare/entity/shared_file_entity.dart';
+import 'package:netshare/service/on_device_server.dart';
 import 'package:netshare/service/signalling.service.dart';
 import 'package:netshare/ui/common_view/address_field_widget.dart';
 import 'package:netshare/ui/common_view/two_modes_switcher.dart';
@@ -57,9 +58,11 @@ class _ServerWidgetState extends State<ServerWidget> {
   final GlobalKey<TwoModeSwitcherState> _twoModeSwitcherKey =
       GlobalKey<TwoModeSwitcherState>();
 
+
   @override
   void initState() {
     super.initState();
+    onDeviceServer().init();
     // pre-loading values
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       final lastAddress = await getIt.get<PrefData>().getLastHostedAddress();

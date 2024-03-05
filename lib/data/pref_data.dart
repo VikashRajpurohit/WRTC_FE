@@ -47,4 +47,15 @@ class PrefData {
     return prefs.getString('enro_no');
   }
 
+  // user's friend list
+  Future<bool> saveUsersFriendList(String pickedPath) async {
+    final SharedPreferences prefs = await _prefs;
+    return prefs.setString('friendList', pickedPath);
+  }
+
+  Future<String?> getUsersFriendList() async {
+    final SharedPreferences prefs = await _prefs;
+    return prefs.getString('friendList');
+  }
+
 }

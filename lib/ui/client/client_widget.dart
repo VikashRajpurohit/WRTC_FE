@@ -60,13 +60,14 @@ class _ClientWidgetState extends State<ClientWidget> {
     _initDownloadModule();
     _downloadStreamListener();
     _initSwitcher();
-    // Future.delayed(Duration(milliseconds: 500), () {
-    //   print("came here to the place1");
-    //   socket!.on("onlineUsers", (data) {
-    //   print("came here to the places");
-    //     // context.showSnackbar('Need Camera permission to continue');
-    //   });
-    // });
+    Future.delayed(Duration(milliseconds: 500), () {
+
+      print("came here to the place1");
+      socket!.on("onlineUsers", (data) {
+      print("came here to the places"+data.toString());
+        // context.showSnackbar('Need Camera permission to continue');
+      });
+    });
   }
 
   void _initDownloadModule() {
@@ -191,6 +192,7 @@ class _ClientWidgetState extends State<ClientWidget> {
   // generate callerID of local user
   final String selfCallerID =
       Random().nextInt(999999).toString().padLeft(6, '0');
+  
 
   @override
   Widget build(BuildContext context) {
